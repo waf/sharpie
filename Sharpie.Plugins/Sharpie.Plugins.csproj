@@ -31,6 +31,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>..\packages\Microsoft.Bcl.Immutable.1.0.34\lib\portable-net45+win8+wp8+wpa81\System.Collections.Immutable.dll</HintPath>
+    </Reference>
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
@@ -41,15 +44,18 @@
     <Compile Include="Infrastructure\IComplexPlugin.cs" />
     <Compile Include="Complex\PingPong.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Simple\Echo.cs" />
     <Compile Include="Infrastructure\ISimplePlugin.cs" />
     <Compile Include="Infrastructure\TriggerAttribute.cs" />
+    <Compile Include="Simple\Woop.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Sharpie.Irc\Sharpie.Irc.csproj">
       <Project>{29e89304-f048-4a18-9490-a26f44e467a4}</Project>
       <Name>Sharpie.Irc</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

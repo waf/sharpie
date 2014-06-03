@@ -18,7 +18,9 @@ namespace Sharpie.Bot
         internal static void InstallComplexPluginSystem(ISourceBlock<IrcMessage> source, ITargetBlock<IrcMessage> destination)
         {
             // find all plugins implementing our complex iplugin interface, and create instances of them
-            var plugins = DiscoverPluginImplementations<IComplexPlugin>()
+            var plugins = Assembly.GetAssembly(typeof(IComplexPlugin))
+                .GetTypes()
+                .Where(t => typeof(IComplexPlugin).IsAssignableFrom(t) && !t.IsInterface)
                 .Select(t => (IComplexPlugin)Activator.CreateInstance(t));
 
             // create a dataflow block for each plugin, and hook them up to the source/destination
@@ -32,26 +34,32 @@ namespace Sharpie.Bot
 
         internal static void InstallSimplePluginSystem(ISourceBlock<IrcMessage> source, ITargetBlock<IrcMessage> destination)
         {
-            // find all classes implementing our simple iplugin interface
-            var plugins = DiscoverPluginImplementations<ISimplePlugin>();
+            // find all classes that have methods adorned with the TriggerAttribute
+            var triggerType = typeof(TriggerAttribute);
+            Func<MethodInfo, bool> hasTrigger = method => method.CustomAttributes.Any(ca => ca.AttributeType == triggerType);
+            var plugins = Assembly.GetAssembly(triggerType)
+                .GetTypes()
+                .Where(t => t.GetMethods().Any(hasTrigger))
+                .ToDictionary(t => Activator.CreateInstance(t), //key is an instance of the class
+                              t => t.GetMethods().Where(hasTrigger)); //value is all the methods adorned with TriggerAttribute
 
+
+            // create a dataflow block for each trigger method
             foreach (var plugin in plugins)
             {
-                var instance = Activator.CreateInstance(plugin);
-
-                // each plugin can have multiple trigger methods, so create a block for each trigger method
-                var triggers = plugin.GetMethods()
-                    .Where(m => m.GetCustomAttribute<TriggerAttribute>() != null);
-                foreach (var trigger in triggers)
+                var instance = plugin.Key;
+                var triggers = plugin.Value;
+                // a plugin can have multiple trigger methods
+                foreach (var triggerMethod in triggers)
                 {
-                    var regex = trigger.GetCustomAttribute<TriggerAttribute>().Regex;
+                    var regex = triggerMethod.GetCustomAttribute<TriggerAttribute>().Regex;
                     var pluginBlock = new TransformBlock<IrcMessage, IrcMessage>(msg =>
                     {
                         var privmsg = (PrivateMessage)msg;
                         // get regex captures from text. the first element is the full string, so skip it
                         var matches = regex.Match(privmsg.Text).Groups.OfType<Capture>().Select(c => c.Value).Skip(1);
                         // call plugin with matched values
-                        var response = (String)trigger.Invoke(instance, matches.ToArray());
+                        var response = (String)triggerMethod.Invoke(instance, matches.ToArray());
                         return new PrivateMessage(privmsg.Target, response);
                     });
                     // filter our link to private messages matching the regex
